@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Belzona混合比 計算アプリ</title>
+<style>
+  :root{--b:#0f172a}
+  *{box-sizing:border-box} body{margin:0;background:#f8fafc;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+  .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px 18px;margin-bottom:16px}
+  h1{font-size:20px;margin:0 0 8px} h2{font-size:16px;margin:0 0 8px;color:#111827}
+  .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  @media (min-width:960px){.row-3{grid-template-columns:repeat(3,1fr)} .row-4{grid-template-columns:repeat(4,1fr)}}
+  label{display:block;font-size:12px;color:#334155;margin:6px 0}
+  input,select,textarea{width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;outline:none}
+  input:focus,select:focus,textarea:focus{box-shadow:0 0 0 2px #cbd5e199}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer}
+  .btn:hover{background:#f8fafc}
+  .btnp{background:var(--b);color:#fff;border-color:var(--b)}
+  .btnp:hover{background:#111827}
+  .note{font-size:12px;color:#64748b}
+  .pill{display:inline-block;padding:2px 8px;border:1px solid #e2e8f0;border-radius:999px;font-size:12px;margin:2px;cursor:pointer;background:#fff}
+  .pill:hover{background:#f1f5f9}
+  .res{display:flex;justify-content:space-between;border:1px solid #e5e7eb;border-radius:12px;padding:12px}
+  .res .v{font-size:20px;font-variant-numeric:tabular-nums}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px 10px;border-bottom:1px solid #eef2f7;font-size:13px;vertical-align:top}
+  th{text-align:left;color:#64748b;font-weight:600}
+  .right{text-align:right}
+  .muted{color:#94a3b8}
+  .danger{color:#b91c1c}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Belzona混合比 計算アプリ</h1>
+    <div class="note">A:Bの比率と合計量 or 主剤量から、主剤/硬化剤/合計を自動計算。履歴保存・CSV出力対応。</div>
+  </div>
+
+  <div class="card">
+    <h2>設定</h2>
+    <div class="row row-4">
+      <div><label>主剤ラベル（A）</label><input id="labelA" value="主剤(A)"></div>
+      <div><label>硬化剤ラベル（B）</label><input id="labelB" value="硬化剤(B)"></div>
+      <div><label>比率 A</label><input id="ratioA" type="number" inputmode="decimal" value="2" step="0.01" min="0"></div>
+      <div><label>比率 B</label><input id="ratioB" type="number" inputmode="decimal" value="1" step="0.01" min="0"></div>
+    </div>
+
+    <div style="margin:10px 0">
+      <span class="note">プリセット: </span>
+      <span id="presets"></span>
+      <button class="btn" id="addPreset">＋ プリセット保存</button>
+    </div>
+
+    <div class="row row-4" style="margin-top:8px">
+      <div>
+        <label>モード</label>
+        <select id="mode">
+          <option value="total">合計仕込みから計算</option>
+          <option value="baseA">主剤（A）から計算</option>
+        </select>
+      </div>
+      <div id="totalBox">
+        <label>合計仕込み量</label>
+        <input id="total" type="number" inputmode="decimal" value="100" step="0.01" min="0">
+      </div>
+      <div id="baseABox" style="display:none">
+        <label id="baseALabel">主剤(A)の量</label>
+        <input id="baseA" type="number" inputmode="decimal" value="80" step="0.01" min="0">
+      </div>
+      <div>
+        <label>単位</label>
+        <select id="unit">
+          <option value="g">g</option>
+          <option value="kg">kg</option>
+        </select>
+      </div>
+      <div>
+        <label>小数点桁数</label>
+        <input id="precision" type="number" value="1" min="0" max="6" step="1">
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:8px">
+      <div><label>品名（任意）</label><input id="product" placeholder="例：Belzona 1111"></div>
+      <div><label>メモ（任意）</label><input id="note" placeholder="例：25℃ 湿度70%など"></div>
+    </div>
+
+    <div id="error" class="danger" style="margin-top:8px"></div>
+
+    <div class="row row-3" style="margin-top:10px">
+      <div class="res"><div id="rALabel">主剤(A)</div><div class="v"><span id="valA">-</span> <span id="uA">g</span></div></div>
+      <div class="res"><div id="rBLabel">硬化剤(B)</div><div class="v"><span id="valB">-</span> <span id="uB">g</span></div></div>
+      <div class="res"><div>合計</div><div class="v"><span id="valT">-</span> <span id="uT">g</span></div></div>
+    </div>
+
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btnp" id="addRow">一覧に追加</button>
+      <button class="btn" id="exportCsv">CSVエクスポート</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h2>計算履歴</h2>
+      <button class="btn" id="clearRows">全削除</button>
+    </div>
+    <div style="overflow:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>日時</th><th>品名</th><th>比率(A:B)</th>
+            <th id="thA">主剤(A)</th><th id="thB">硬化剤(B)</th>
+            <th>合計</th><th>単位</th><th>メモ</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="9" class="muted">まだデータがありません</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:8px">
+      ※ 履歴はこのPCのブラウザに保存されます（このPC内のみ）。クリアすると元に戻せません。
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (id)=>document.getElementById(id);
+  const toNum = (v)=>{ if(v==null) return NaN; const s=String(v).replace(/,/g,'').trim(); if(!s) return NaN; const n=Number(s); return Number.isFinite(n)?n:NaN; };
+  const pos = (n)=>Number.isFinite(n)&&n>0;
+  const round = (n,d)=>Number.isFinite(n)?Math.round(n*Math.pow(10,d))/Math.pow(10,d):NaN;
+  const fmtDate = (iso)=>{try{const d=new Date(iso); const p=(x)=>String(x).padStart(2,'0'); return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`}catch{return iso} };
+  const escapeCsv = (s)=>{ if(s==null) return ""; s=String(s); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
+
+  const LS_ROWS='mix_rows_v1', LS_PRESETS='mix_presets_v1';
+  const loadRows=()=>{ try{ return JSON.parse(localStorage.getItem(LS_ROWS)||'[]'); }catch{ return [] } };
+  const saveRows=(rows)=>localStorage.setItem(LS_ROWS, JSON.stringify(rows));
+  const loadPresets=()=>{ try{ const d=JSON.parse(localStorage.getItem(LS_PRESETS)||'null'); return Array.isArray(d)&&d.length?d:[{name:"2:1",a:2,b:1},{name:"4:1",a:4,b:1},{name:"3:2",a:3,b:2}]; }catch{ return [{name:"2:1",a:2,b:1},{name:"4:1",a:4,b:1},{name:"3:2",a:3,b:2}] } };
+  const savePresets=(p)=>localStorage.setItem(LS_PRESETS, JSON.stringify(p));
+
+  const labelA=$("labelA"), labelB=$("labelB");
+  const ratioA=$("ratioA"), ratioB=$("ratioB"), mode=$("mode");
+  const total=$("total"), baseA=$("baseA"), baseALabel=$("baseALabel");
+  const totalBox=$("totalBox"), baseABox=$("baseABox");
+  const unit=$("unit"), precision=$("precision");
+  const product=$("product"), note=$("note");
+  const err=$("error");
+  const valA=$("valA"), valB=$("valB"), valT=$("valT");
+  const uA=$("uA"), uB=$("uB"), uT=$("uT");
+  const rALabel=$("rALabel"), rBLabel=$("rBLabel");
+  const thA=$("thA"), thB=$("thB");
+  const addRowBtn=$("addRow"), exportBtn=$("exportCsv"), clearBtn=$("clearRows");
+  const tbody=$("tbody"), presetsEl=$("presets"), addPresetBtn=$("addPreset");
+
+  let rows=loadRows();
+  let presets=loadPresets();
+
+  function renderPresets(){
+    presetsEl.innerHTML="";
+    presets.forEach(p=>{
+      const a=document.createElement('button');
+      a.className='pill'; a.textContent=p.name;
+      a.onclick=()=>{ ratioA.value=p.a; ratioB.value=p.b; calc(); };
+      presetsEl.appendChild(a);
+    });
+  }
+
+  function calc(){
+    err.textContent="";
+    rALabel.textContent=labelA.value||"主剤(A)";
+    rBLabel.textContent=labelB.value||"硬化剤(B)";
+    thA.textContent=rALabel.textContent;
+    thB.textContent=rBLabel.textContent;
+    [uA.textContent,uB.textContent,uT.textContent]=[unit.value,unit.value,unit.value];
+
+    const a=toNum(ratioA.value), b=toNum(ratioB.value);
+    if(!pos(a)||!pos(b)){ err.textContent="比率 A/B を正の数で入力してください。"; showValues(NaN,NaN,NaN); return; }
+
+    let A,B,T;
+    if(mode.value==="total"){
+      const t=toNum(total.value);
+      if(!pos(t)){ err.textContent="合計仕込み量を正の数で入力してください。"; showValues(NaN,NaN,NaN); return; }
+      A=t*a/(a+b); B=t*b/(a+b); T=t;
+    }else{
+      const ain=toNum(baseA.value);
+      if(!pos(ain)){ err.textContent=`${rALabel.textContent}の量を正の数で入力してください。`; showValues(NaN,NaN,NaN); return; }
+      A=ain; B=ain*b/a; T=A+B;
+    }
+    const d=Math.max(0,Math.min(6,Number(precision.value)||0));
+    showValues(round(A,d),round(B,d),round(T,d));
+  }
+
+  function showValues(A,B,T){
+    valA.textContent=Number.isFinite(A)?A:"-";
+    valB.textContent=Number.isFinite(B)?B:"-";
+    valT.textContent=Number.isFinite(T)?T:"-";
+    addRowBtn.disabled=!(Number.isFinite(A)&&Number.isFinite(B)&&Number.isFinite(T)&&!err.textContent);
+  }
+
+  function addRow(){
+    if(addRowBtn.disabled) return;
+    const row={ id:crypto.randomUUID(), ts:new Date().toISOString(),
+      product:(product.value||"").trim(), labelA:rALabel.textContent, labelB:rBLabel.textContent,
+      ratio:`${toNum(ratioA.value)}:${toNum(ratioB.value)}`, amountA:Number(valA.textContent),
+      amountB:Number(valB.textContent), total:Number(valT.textContent), unit:unit.value, note:(note.value||"").trim() };
+    rows=[row,...rows]; saveRows(rows); product.value=""; note.value=""; renderTable();
+  }
+  function removeRow(id){ rows=rows.filter(r=>r.id!==id); saveRows(rows); renderTable(); }
+  function clearRows(){ if(confirm("履歴を全て削除します。よろしいですか？")){ rows=[]; saveRows(rows); renderTable(); } }
+  function renderTable(){
+    if(!rows.length){ tbody.innerHTML=`<tr><td colspan="9" class="muted">まだデータがありません</td></tr>`; return; }
+    tbody.innerHTML=rows.map(r=>`
+      <tr>
+        <td>${fmtDate(r.ts)}</td>
+        <td>${r.product?escapeHtml(r.product):""}</td>
+        <td>${r.ratio}</td>
+        <td class="right">${r.amountA}</td>
+        <td class="right">${r.amountB}</td>
+        <td class="right">${r.total}</td>
+        <td>${r.unit}</td>
+        <td>${r.note?escapeHtml(r.note):""}</td>
+        <td><button class="btn" onclick="removeRow('${r.id}')">削除</button></td>
+      </tr>`).join('');
+  }
+  function exportCsv(){
+    if(!rows.length){ alert("出力する履歴がありません。"); return; }
+    const header=["日時","品名","比率(A:B)",rALabel.textContent,rBLabel.textContent,"合計","単位","メモ"];
+    const lines=rows.map(r=>[fmtDate(r.ts),r.product||"",r.ratio,r.amountA,r.amountB,r.total,r.unit,r.note||""]);
+    const csv=[... [header], ...lines].map(a=>a.map(escapeCsv).join(",")).join("\n");
+    const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8;"}); const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=`mixing_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+  [labelA,labelB,ratioA,ratioB,total,baseA,unit,precision,mode].forEach(el=>el.addEventListener('input', onInputs));
+  function onInputs(){
+    baseALabel.textContent=`${labelA.value||"主剤(A)"}の量`;
+    if(mode.value==="total"){ totalBox.style.display="block"; baseABox.style.display="none"; }
+    else { totalBox.style.display="none"; baseABox.style.display="block"; }
+    calc();
+  }
+  addPresetBtn.addEventListener('click', ()=>{
+    const a=toNum(ratioA.value), b=toNum(ratioB.value);
+    if(!pos(a)||!pos(b)) return alert("比率A/Bを正しい数値で入力してください。");
+    const name=prompt("プリセット名（例 4:1）",`${a}:${b}`); if(!name) return;
+    presets=[{name, a, b}, ...presets]; savePresets(presets); renderPresets();
+  });
+  addRowBtn.addEventListener('click', addRow);
+  exportBtn.addEventListener('click', exportCsv);
+  clearBtn.addEventListener('click', clearRows);
+
+  // init
+  renderPresets(); onInputs(); renderTable(); window.removeRow=removeRow;
+</script>
+</body>
+</html>
