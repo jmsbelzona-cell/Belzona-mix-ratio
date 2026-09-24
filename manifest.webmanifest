@@ -1,0 +1,19 @@
+{
+  "name": "Belzona混合比 計算アプリ",
+  "short_name": "Belzona混合比",
+  "description": "Belzona製品のA:B混合比から主剤・硬化剤・合計量を計算するオフライン対応アプリ",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
