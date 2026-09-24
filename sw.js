@@ -1,4 +1,4 @@
-const CACHE_NAME = 'belzona-mix-ratio-v8';
+const CACHE_NAME = 'belzona-mix-ratio-v10';
 const APP_SHELL = [
   './',
   './index.html',
